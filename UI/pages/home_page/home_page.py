@@ -1,14 +1,9 @@
-from PySide6.QtWidgets import QWidget,QLabel,QPushButton,QVBoxLayout,QHBoxLayout
 from PySide6.QtGui import QPixmap,QFont
 from PySide6.QtCore import Qt
-
 from PySide6.QtWidgets import (
     QWidget, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout
 )
-from PySide6.QtGui import QPixmap, QFont
-from PySide6.QtCore import Qt
-
 
 class HomePage(QWidget):
     """Landing page with a single combined image and navigation buttons."""
