@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QPushButton, QGraphicsOpacityEffect, QGridLayout, QSizePolicy,QSpacerItem,
+    QMenuBar,QMenu
 )
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, QPoint, QByteArray
 from PySide6.QtGui import QFont, QPixmap
@@ -32,6 +33,49 @@ class GamePage(QWidget):
         
         self.player_score = 0
         self.computer_score = 0
+
+        #Menu Bar
+        menu_bar = QMenuBar(self)
+        menu_bar.setStyleSheet("""
+            QMenuBar {
+                background-color: #3b1d9e;
+                color: white;
+            }
+
+            QMenuBar::item {
+                background-color: transparent;
+                padding: 5px 15px;
+            }
+
+            QMenuBar::item:selected {
+                background-color: #5a3dbf;
+            }
+
+            QMenu {
+                background-color: #2c1584;
+                color: white;
+                border: 1px solid #888;
+            }
+
+            QMenu::item {
+                background-color: transparent;
+                padding: 6px 20px;
+            }
+
+            QMenu::item:selected {
+                background-color: #ff9900;
+                color: black;
+            }
+        """)
+
+        # Create the "Actions" menu
+        actions_menu = QMenu("Actions", self)
+        actions_menu.addAction("Show Camera")
+        actions_menu.addAction("Show AI")
+
+        # Add the menu to the menu bar
+        menu_bar.addMenu(actions_menu)
+
 
         # Main Layout
         main_layout = QVBoxLayout(self)
