@@ -31,7 +31,7 @@ class MainWindow(QMainWindow):
     def transition_to_game(self):
         """Animate transition from home to game page."""
         self.stack.setCurrentIndex(1)
-        self.animate_transition()
+        # self.animate_transition()
 
     def animate_transition(self):
         """Smooth animation for the stacked widget switch."""
