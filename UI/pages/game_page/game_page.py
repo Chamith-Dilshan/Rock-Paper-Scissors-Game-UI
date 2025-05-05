@@ -1,20 +1,91 @@
 from PySide6.QtWidgets import (
-    QWidget, QLabel, QVBoxLayout, QPushButton, QGraphicsOpacityEffect, QGridLayout, QSizePolicy,QSpacerItem,
-    QMenuBar,QMenu
+    QWidget, QLabel, QVBoxLayout, QPushButton, QGraphicsOpacityEffect, 
+    QGridLayout, QSizePolicy, QSpacerItem, QMenuBar, QMenu, QDialog,
+    QMessageBox
 )
 from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer, QPoint, QByteArray
-from PySide6.QtGui import QFont, QPixmap
+from PySide6.QtGui import QFont, QPixmap, QImage
 import random
+import cv2
 from pages.widgets.vs_widget import VSWidget
 
+class CameraWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Camera Feed")
+        self.setFixedSize(640, 480)
+        self.label = QLabel(self)
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout = QVBoxLayout()
+        layout.addWidget(self.label)
+        self.setLayout(layout)
+        
+        self.capture = None
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_frame)
+        
+    def start_camera(self):
+        """Attempt to start the camera and return success status"""
+        try:
+            self.capture = cv2.VideoCapture(0)
+            if not self.capture.isOpened():
+                raise RuntimeError("Could not open camera")
+            self.timer.start(30)
+            return True
+        except Exception as e:
+            print(f"Camera error: {str(e)}")
+            return False
+
+    def update_frame(self):
+        if self.capture and self.capture.isOpened():
+            ret, frame = self.capture.read()
+            if ret:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                h, w, ch = frame.shape
+                bytes_per_line = ch * w
+                image = QImage(frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+                pixmap = QPixmap.fromImage(image)
+                self.label.setPixmap(pixmap.scaled(self.label.size(), Qt.AspectRatioMode.KeepAspectRatio))
+
+    def closeEvent(self, event):
+        self.stop_camera()
+        event.accept()
+
+    def stop_camera(self):
+        if self.capture and self.capture.isOpened():
+            self.capture.release()
+        self.timer.stop()
+
+    def show_camera(self):
+        """Show the camera window and display status message"""
+        if self.capture and self.capture.isOpened():
+            self.show()
+            QMessageBox.information(self, "Camera Status", 
+                                   "Camera is now active and showing live feed!")
+        else:
+            QMessageBox.critical(self, "Camera Error", 
+                               "Camera is not available. Please check your camera connection.")
+
 class GamePage(QWidget):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.camera_window = None
+        self.camera_active = False
         self.init_ui()
+        self.initialize_camera()
+
+    def initialize_camera(self):
+        """Initialize camera and show appropriate message"""
+        self.camera_window = CameraWindow(self)
+        if self.camera_window.start_camera():
+            # Don't show message here - we'll show it when user explicitly opens camera
+            pass
+        else:
+            QMessageBox.critical(self, "Camera Error", 
+                               "Could not initialize camera. Please check if camera is connected and try again.")
 
     def init_ui(self):
         self.setStyleSheet("background-color: #3b1d9e; color: white;")
-        # self.setStyleSheet("background-color: #1e1e1e; color: white;")
         self.choices = ["rock", "paper", "scissors"]
         self.image_paths = {
             "rock": "assets/images/rock.png",
@@ -34,34 +105,29 @@ class GamePage(QWidget):
         self.player_score = 0
         self.computer_score = 0
 
-        #Menu Bar
+        # Menu Bar
         menu_bar = QMenuBar(self)
         menu_bar.setStyleSheet("""
             QMenuBar {
                 background-color: #3b1d9e;
                 color: white;
             }
-
             QMenuBar::item {
                 background-color: transparent;
                 padding: 5px 15px;
             }
-
             QMenuBar::item:selected {
                 background-color: #5a3dbf;
             }
-
             QMenu {
                 background-color: #2c1584;
                 color: white;
                 border: 1px solid #888;
             }
-
             QMenu::item {
                 background-color: transparent;
                 padding: 6px 20px;
             }
-
             QMenu::item:selected {
                 background-color: #ff9900;
                 color: black;
@@ -70,12 +136,12 @@ class GamePage(QWidget):
 
         # Create the "Actions" menu
         actions_menu = QMenu("Actions", self)
-        actions_menu.addAction("Show Camera")
-        actions_menu.addAction("Show AI")
+        camera_action = actions_menu.addAction("Show Camera")
+        camera_action.triggered.connect(self.show_camera_window)
+        ai_action = actions_menu.addAction("Show AI")
+        ai_action.triggered.connect(self.show_ai_info)
 
-        # Add the menu to the menu bar
         menu_bar.addMenu(actions_menu)
-
 
         # Main Layout
         main_layout = QVBoxLayout(self)
@@ -96,7 +162,7 @@ class GamePage(QWidget):
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl.setFont(QFont("Arial", 14, QFont.Weight.Bold))
 
-        #VS Layout
+        # VS Layout
         self.vs_widget = VSWidget()
 
         # Add components to the grid layout
@@ -129,16 +195,13 @@ class GamePage(QWidget):
                 font-size: 30px;
                 font-weight: bold;
                 border: none;
-                border-radius: 50px; /* Makes the button circular */
-                width: 100px; /* Set width for the button */
-                height: 100px; /* Set height for the button */
+                border-radius: 50px;
+                width: 100px;
+                height: 100px;
             }
             QPushButton:hover {
-                background-color: darkorange; /* Change color on hover */
+                background-color: darkorange;
             }
-            # QPushButton:pressed {
-            #     background-color: red; /* Change color when pressed */
-            # }
         """)
         self.start_button.clicked.connect(self.start_game)
 
@@ -161,6 +224,16 @@ class GamePage(QWidget):
         self.timer.timeout.connect(self.update_timer)
         self.time_left = 3
 
+    def show_camera_window(self):
+        """Show camera window with status message"""
+        if self.camera_window:
+            self.camera_window.show_camera()
+
+    def show_ai_info(self):
+        """Show information about the AI"""
+        QMessageBox.information(self, "AI Information", 
+                              "This game uses a simple random choice algorithm for the computer player.")
+
     def start_game(self):
         self.result_label.setText("")
         opacity_effect = self.result_label.graphicsEffect()
@@ -169,7 +242,6 @@ class GamePage(QWidget):
         self.time_left = 3
         self.timer_label.setText(f"Time: {self.time_left}")
         self.timer.start()
-
 
     def update_timer(self):
         self.time_left -= 1
@@ -190,36 +262,29 @@ class GamePage(QWidget):
 
         result = self.determine_winner(comp_choice, player_choice)
 
-        if "Robot" in result:
+        if "Computer" in result:
             self.computer_score += 1
         elif "You" in result:
             self.player_score += 1
 
-        self.computer_score_label.setText(f"Robot: {self.computer_score}")
+        self.computer_score_label.setText(f"Computer: {self.computer_score}")
         self.player_score_label.setText(f"You: {self.player_score}")
         self.fade_in_result(result)
     
     def fade_in_result(self, text: str):
         self.result_label.setText(text)
-
-        # Ensure the result_label has a QGraphicsOpacityEffect applied
         effect = self.result_label.graphicsEffect()
         if not isinstance(effect, QGraphicsOpacityEffect):
             effect = QGraphicsOpacityEffect(self.result_label)
             self.result_label.setGraphicsEffect(effect)
 
-        # Create and configure the opacity animation
         animation = QPropertyAnimation(effect, QByteArray(b"opacity"), self)
         animation.setDuration(800)
         animation.setStartValue(0)
         animation.setEndValue(1)
         animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
-
-        # Start the animation and keep a reference to prevent garbage collection
         animation.start()
-        self.result_fade_anim = animation # Prevent GC
-
-
+        self.result_fade_anim = animation
 
     def animate_choice(self, new_pixmap: QPixmap):
         start_pos = self.computer_img.pos() - QPoint(100, 0)
@@ -234,10 +299,9 @@ class GamePage(QWidget):
         anim.setEndValue(end_pos)
         anim.setEasingCurve(QEasingCurve.Type.OutBack)
         anim.start()
-        self.anim = anim  # keep reference alive
+        self.anim = anim
 
     def determine_winner(self, comp: str, player: str) -> str:
-        print (f"Computer: {comp}, Player: {player}")
         beats = {
             "rock": "scissors",
             "scissors": "paper",
@@ -250,3 +314,8 @@ class GamePage(QWidget):
             return "Computer Wins!"
         else:
             return "You Win!"
+
+    def closeEvent(self, event):
+        if self.camera_window:
+            self.camera_window.close()
+        event.accept()
